@@ -1015,6 +1015,23 @@ fn cannot_edit_post_in_moderated_thread() {
     });
 }
 
-// TODO impl
-// #[test]
-// fn cannot_edit_moderated_post() {}
+#[test]
+fn cannot_edit_moderated_post() {
+    let config = default_genesis_config();
+    let forum_sudo = OriginType::Signed(config.forum_sudo);
+
+    with_externalities(&mut build_test_externalities(config), || {
+        let (member_origin, _, _, post_id) = create_root_category_and_thread_and_post(forum_sudo.clone());
+        assert_ok!(
+            moderate_post(forum_sudo, post_id, good_rationale())
+        );
+        assert_err!(
+            TestForumModule::edit_post_text(
+                mock_origin(member_origin),
+                post_id,
+                good_rationale()
+            ),
+            ERROR_POST_MODERATED
+        );
+    });
+}
