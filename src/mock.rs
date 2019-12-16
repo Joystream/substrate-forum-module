@@ -4,24 +4,24 @@ use crate::*;
 
 use primitives::{Blake2Hasher, H256};
 
-use srml_support::{impl_outer_origin}; // assert, assert_eq
 use crate::{GenesisConfig, Module, Trait};
 use runtime_primitives::{
     testing::{Digest, DigestItem, Header},
     traits::{BlakeTwo256, IdentityLookup}, //OnFinalize, OnInitialize},
     BuildStorage,
 };
+use srml_support::impl_outer_origin; // assert, assert_eq
 
-/// Module which has a full Substrate module for 
+/// Module which has a full Substrate module for
 /// mocking behaviour of MembershipRegistry
 pub mod registry {
 
-    use srml_support::*;
     use super::*;
+    use srml_support::*;
 
     #[derive(Encode, Decode, Default, Clone, PartialEq, Eq)]
     pub struct Member<AccountId> {
-        pub id: AccountId
+        pub id: AccountId,
     }
 
     decl_storage! {
@@ -34,7 +34,7 @@ pub mod registry {
         // A weird hack required to convince decl_storage that our field above
         // does indeed use the T, otherwise would start complaining about phantom fields.
         // An alternative fix is to add this extra key when initiatilising a gensisconfig for this module
-        // _genesis_phantom_data: Default::default() 
+        // _genesis_phantom_data: Default::default()
         extra_genesis_skip_phantom_data_field;
     }
 
@@ -43,44 +43,32 @@ pub mod registry {
     }
 
     impl<T: Trait> Module<T> {
-
-        pub fn get_member(account_id: &T::AccountId) -> Option<Member<T::AccountId>> { 
-            
+        pub fn get_member(account_id: &T::AccountId) -> Option<Member<T::AccountId>> {
             if <ForumUserById<T>>::exists(account_id) {
                 Some(<ForumUserById<T>>::get(account_id))
             } else {
                 None
             }
-
         }
 
-        pub fn add_member(member: & Member<T::AccountId>) {
+        pub fn add_member(member: &Member<T::AccountId>) {
             <ForumUserById<T>>::insert(member.id.clone(), member.clone());
         }
-
     }
 
     impl<T: Trait> ForumUserRegistry<T::AccountId> for Module<T> {
-
         fn get_forum_user(id: &T::AccountId) -> Option<ForumUser<T::AccountId>> {
-
             if <ForumUserById<T>>::exists(id) {
-
                 let m = <ForumUserById<T>>::get(id);
 
-                Some(ForumUser{
-                    id : m.id 
-                })
-
+                Some(ForumUser { id: m.id })
             } else {
                 None
             }
-
         }
     }
 
     pub type TestMembershipRegistryModule = Module<Runtime>;
-
 }
 
 impl_outer_origin! {
@@ -118,32 +106,30 @@ impl Trait for Runtime {
 pub enum OriginType {
     Signed(<Runtime as system::Trait>::AccountId),
     //Inherent, <== did not find how to make such an origin yet
-    Root
+    Root,
 }
 
 /*
  * These test fixtures can be heavily refactored to avoid repotition, needs macros, and event
  * assertions are also missing.
- */ 
+ */
 
 pub struct CreateCategoryFixture {
     pub origin: OriginType,
     pub parent: Option<CategoryId>,
     pub title: Vec<u8>,
     pub description: Vec<u8>,
-    pub result: dispatch::Result
+    pub result: dispatch::Result,
 }
 
 impl CreateCategoryFixture {
-
     pub fn call_and_assert(&self) {
-
         assert_eq!(
             TestForumModule::create_category(
                 match self.origin {
                     OriginType::Signed(account_id) => Origin::signed(account_id),
                     //OriginType::Inherent => Origin::inherent,
-                    OriginType::Root => system::RawOrigin::Root.into() //Origin::root
+                    OriginType::Root => system::RawOrigin::Root.into(), //Origin::root
                 },
                 self.parent,
                 self.title.clone(),
@@ -159,19 +145,17 @@ pub struct UpdateCategoryFixture {
     pub category_id: CategoryId,
     pub new_archival_status: Option<bool>,
     pub new_deletion_status: Option<bool>,
-    pub result: dispatch::Result
+    pub result: dispatch::Result,
 }
 
 impl UpdateCategoryFixture {
-
     pub fn call_and_assert(&self) {
-
         assert_eq!(
             TestForumModule::update_category(
                 match self.origin {
                     OriginType::Signed(account_id) => Origin::signed(account_id),
                     //OriginType::Inherent => Origin::inherent,
-                    OriginType::Root => system::RawOrigin::Root.into() //Origin::root
+                    OriginType::Root => system::RawOrigin::Root.into(), //Origin::root
                 },
                 self.category_id,
                 self.new_archival_status.clone(),
@@ -186,11 +170,10 @@ impl UpdateCategoryFixture {
 // our desired mockup.
 
 // refactor
-/// - add each config as parameter, then 
-/// 
+/// - add each config as parameter, then
+///
 
 pub fn default_genesis_config() -> GenesisConfig<Runtime> {
-
     GenesisConfig::<Runtime> {
         category_by_id: vec![], // endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
         next_category_id: 0,
@@ -201,49 +184,61 @@ pub fn default_genesis_config() -> GenesisConfig<Runtime> {
 
         forum_sudo: 33,
 
-        category_title_constraint: InputValidationLengthConstraint{
+        category_title_constraint: InputValidationLengthConstraint {
             min: 10,
-            max_min_diff: 140
+            max_min_diff: 140,
         },
 
-        category_description_constraint: InputValidationLengthConstraint{
+        category_description_constraint: InputValidationLengthConstraint {
             min: 10,
-            max_min_diff: 140
+            max_min_diff: 140,
         },
 
-        thread_title_constraint: InputValidationLengthConstraint{
+        thread_title_constraint: InputValidationLengthConstraint {
             min: 3,
-            max_min_diff: 43
+            max_min_diff: 43,
         },
 
-        post_text_constraint: InputValidationLengthConstraint{
+        post_text_constraint: InputValidationLengthConstraint {
             min: 1,
-            max_min_diff: 1001
+            max_min_diff: 1001,
         },
 
-        thread_moderation_rationale_constraint: InputValidationLengthConstraint{
+        thread_moderation_rationale_constraint: InputValidationLengthConstraint {
             min: 100,
-            max_min_diff: 2000
+            max_min_diff: 2000,
         },
 
-        post_moderation_rationale_constraint: InputValidationLengthConstraint{
+        post_moderation_rationale_constraint: InputValidationLengthConstraint {
             min: 100,
-            max_min_diff: 2000
-        }
+            max_min_diff: 2000,
+        }, // JUST GIVING UP ON ALL THIS FOR NOW BECAUSE ITS TAKING TOO LONG
 
-
-        // JUST GIVING UP ON ALL THIS FOR NOW BECAUSE ITS TAKING TOO LONG
-
-        // Extra genesis fields
-        //initial_forum_sudo: Some(143)
+           // Extra genesis fields
+           //initial_forum_sudo: Some(143)
     }
 }
 
-pub type RuntimeMap<K,V> = std::vec::Vec<(K, V)>;
-pub type RuntimeCategory = Category< <Runtime as system::Trait>::BlockNumber, <Runtime as timestamp::Trait>::Moment, <Runtime as system::Trait>::AccountId>;
-pub type RuntimeThread = Thread< <Runtime as system::Trait>::BlockNumber, <Runtime as timestamp::Trait>::Moment, <Runtime as system::Trait>::AccountId>;
-pub type RuntimePost = Post< <Runtime as system::Trait>::BlockNumber, <Runtime as timestamp::Trait>::Moment, <Runtime as system::Trait>::AccountId>;
-pub type RuntimeBlockchainTimestamp = BlockchainTimestamp<<Runtime as system::Trait>::BlockNumber, <Runtime as timestamp::Trait>::Moment>;
+pub type RuntimeMap<K, V> = std::vec::Vec<(K, V)>;
+pub type RuntimeCategory = Category<
+    <Runtime as system::Trait>::BlockNumber,
+    <Runtime as timestamp::Trait>::Moment,
+    <Runtime as system::Trait>::AccountId,
+>;
+pub type RuntimeThread = Thread<
+    <Runtime as system::Trait>::BlockNumber,
+    <Runtime as timestamp::Trait>::Moment,
+    <Runtime as system::Trait>::AccountId,
+>;
+pub type RuntimePost = Post<
+    <Runtime as system::Trait>::BlockNumber,
+    <Runtime as timestamp::Trait>::Moment,
+    <Runtime as system::Trait>::AccountId,
+>;
+pub type RuntimeBlockchainTimestamp = BlockchainTimestamp<
+    <Runtime as system::Trait>::BlockNumber,
+    <Runtime as timestamp::Trait>::Moment,
+>;
 
 pub fn genesis_config(
     category_by_id: &RuntimeMap<CategoryId, RuntimeCategory>,
@@ -258,10 +253,8 @@ pub fn genesis_config(
     thread_title_constraint: &InputValidationLengthConstraint,
     post_text_constraint: &InputValidationLengthConstraint,
     thread_moderation_rationale_constraint: &InputValidationLengthConstraint,
-    post_moderation_rationale_constraint: &InputValidationLengthConstraint
-    ) 
-    -> GenesisConfig<Runtime> {
-
+    post_moderation_rationale_constraint: &InputValidationLengthConstraint,
+) -> GenesisConfig<Runtime> {
     GenesisConfig::<Runtime> {
         category_by_id: category_by_id.clone(),
         next_category_id: next_category_id,
@@ -275,36 +268,32 @@ pub fn genesis_config(
         thread_title_constraint: thread_title_constraint.clone(),
         post_text_constraint: post_text_constraint.clone(),
         thread_moderation_rationale_constraint: thread_moderation_rationale_constraint.clone(),
-        post_moderation_rationale_constraint: post_moderation_rationale_constraint.clone()
+        post_moderation_rationale_constraint: post_moderation_rationale_constraint.clone(),
     }
 }
 
 // MockForumUserRegistry
 pub fn default_mock_forum_user_registry_genesis_config() -> registry::GenesisConfig<Runtime> {
-
     registry::GenesisConfig::<Runtime> {
-        forum_user_by_id : vec![],
+        forum_user_by_id: vec![],
     }
 }
 
 // NB!:
 // Wanted to have payload: a: &GenesisConfig<Test>
 // but borrow checker made my life miserabl, so giving up for now.
-pub fn build_test_externalities(config: GenesisConfig<Runtime>) -> runtime_io::TestExternalities<Blake2Hasher> {
-
-    let mut t = config
-        .build_storage()
-        .unwrap()
-        .0;
+pub fn build_test_externalities(
+    config: GenesisConfig<Runtime>,
+) -> runtime_io::TestExternalities<Blake2Hasher> {
+    let mut t = config.build_storage().unwrap().0;
 
     // Add mock registry configuration
     t.extend(
         default_mock_forum_user_registry_genesis_config()
-        .build_storage()
-        .unwrap()
-        .0
+            .build_storage()
+            .unwrap()
+            .0,
     );
-
 
     t.into()
 }
