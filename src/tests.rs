@@ -139,6 +139,20 @@ fn update_category_undelete_and_unarchive() {
      * Create an initial state with two levels of categories, where
      * leaf category is deleted, and then try to undelete.
      */
+    let config = default_genesis_config();
+
+    with_externalities(&mut build_test_externalities(config), || {
+        CreateCategoryFixture {
+            origin: OriginType::Signed(default_genesis_config().forum_sudo),
+            parent: None,
+            title: "My new category".as_bytes().to_vec(),
+            description: "This is a great new category for the forum"
+                .as_bytes()
+                .to_vec(),
+            result: Ok(()),
+        }
+        .call_and_assert();
+    });
 
     let forum_sudo = 32;
 
@@ -199,6 +213,7 @@ fn update_category_undelete_and_unarchive() {
         0,                           // next_thread_id
         &vec![],                     // post_by_id
         0,                           // next_post_id
+        &vec![],                     // category_by_moderator
         forum_sudo,
         &sloppy_constraint,
         &sloppy_constraint,
@@ -246,5 +261,50 @@ fn create_thread_not_forum_member() {
 
         // Make sure its now there
         assert!(registry::TestMembershipRegistryModule::get_member(&new_member.id).is_some());
+    });
+}
+
+#[test]
+fn test_set_moderator_category() {
+    /*
+     * Create an initial state with two levels of categories, where
+     * leaf category is deleted, and then try to undelete.
+     */
+    let config = default_genesis_config();
+
+    with_externalities(&mut build_test_externalities(config), || {
+        CreateCategoryFixture {
+            origin: OriginType::Signed(default_genesis_config().forum_sudo),
+            parent: None,
+            title: "My new category".as_bytes().to_vec(),
+            description: "This is a great new category for the forum"
+                .as_bytes()
+                .to_vec(),
+            result: Ok(()),
+        }
+        .call_and_assert();
+
+        let new_member = registry::Member { id: 33 };
+
+        // Add new membe
+        registry::TestMembershipRegistryModule::add_member(&new_member);
+
+        // Ensure that forum sudo is default
+        assert_eq!(
+            TestForumModule::category_by_moderator(0, default_genesis_config().forum_sudo),
+            false
+        );
+        assert_eq!(
+            TestForumModule::set_moderator_category(
+                Origin::signed(default_genesis_config().forum_sudo),
+                0,
+                33
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            TestForumModule::category_by_moderator(0, default_genesis_config().forum_sudo),
+            true
+        );
     });
 }

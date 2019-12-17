@@ -181,7 +181,7 @@ pub fn default_genesis_config() -> GenesisConfig<Runtime> {
         next_thread_id: 0,
         post_by_id: vec![],
         next_post_id: 0,
-
+        category_by_moderator: vec![],
         forum_sudo: 33,
 
         category_title_constraint: InputValidationLengthConstraint {
@@ -220,6 +220,7 @@ pub fn default_genesis_config() -> GenesisConfig<Runtime> {
 }
 
 pub type RuntimeMap<K, V> = std::vec::Vec<(K, V)>;
+pub type RuntimeDoubleMap<K1, K2, V> = std::vec::Vec<(K1, K2, V)>;
 pub type RuntimeCategory = Category<
     <Runtime as system::Trait>::BlockNumber,
     <Runtime as timestamp::Trait>::Moment,
@@ -247,6 +248,12 @@ pub fn genesis_config(
     next_thread_id: u64,
     post_by_id: &RuntimeMap<PostId, RuntimePost>,
     next_post_id: u64,
+    //category_by_moderator config(): double_map CategoryId, blake2_256(T::AccountId) => bool;
+    category_by_moderator: &RuntimeDoubleMap<
+        CategoryId,
+        <Runtime as system::Trait>::AccountId,
+        bool,
+    >,
     forum_sudo: <Runtime as system::Trait>::AccountId,
     category_title_constraint: &InputValidationLengthConstraint,
     category_description_constraint: &InputValidationLengthConstraint,
@@ -262,6 +269,7 @@ pub fn genesis_config(
         next_thread_id: next_thread_id,
         post_by_id: post_by_id.clone(),
         next_post_id: next_post_id,
+        category_by_moderator: category_by_moderator.clone(),
         forum_sudo: forum_sudo,
         category_title_constraint: category_title_constraint.clone(),
         category_description_constraint: category_description_constraint.clone(),

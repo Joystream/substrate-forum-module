@@ -215,7 +215,8 @@ use rstd::prelude::*;
 
 use parity_codec_derive::{Decode, Encode};
 use srml_support::{
-    decl_event, decl_module, decl_storage, dispatch, ensure, StorageMap, StorageValue,
+    decl_event, decl_module, decl_storage, dispatch, ensure, StorageDoubleMap, StorageMap,
+    StorageValue,
 };
 
 mod mock;
@@ -320,6 +321,13 @@ pub struct ForumUser<AccountId> {
                        // - updating post count of a user
                        // - updating status (e.g. hero, new, etc.)
                        //
+}
+
+/// Represents a moderator in this forum.
+#[derive(Debug, Copy, Clone)]
+pub struct ForumModerator<AccountId> {
+    /// Identifier of user
+    pub id: AccountId,
 }
 
 /// Represents a regsitry of `ForumUser` instances.
@@ -527,6 +535,9 @@ pub trait Trait: system::Trait + timestamp::Trait + Sized {
     type MembershipRegistry: ForumUserRegistry<Self::AccountId>;
 }
 
+/// Represents a moderator identifier
+pub type ModeratorId = u64;
+
 decl_storage! {
     trait Store for Module<T: Trait> as Forum {
 
@@ -550,6 +561,9 @@ decl_storage! {
 
         /// Account of forum sudo.
         pub ForumSudo get(forum_sudo) config(): Option<T::AccountId>;
+
+        /// Moderator set for each Category
+        pub CategoryByModerator get(category_by_moderator) config(): double_map CategoryId, blake2_256(T::AccountId) => bool;
 
         /// Input constraints
         /// These are all forward looking, that is they are enforced on all
@@ -624,6 +638,26 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
         fn deposit_event<T>() = default;
+
+        fn set_moderator_category(origin, category_id: CategoryId, account_id: T::AccountId) -> dispatch::Result {
+            let who = ensure_signed(origin)?;
+
+            // Not signed by forum SUDO
+            Self::ensure_is_forum_sudo(&who)?;
+
+            // ensure category exists.
+            ensure!(
+            <CategoryById<T>>::exists(&category_id),
+            ERROR_CATEGORY_DOES_NOT_EXIST
+            );
+
+            // ensure account id exist.
+            Self::ensure_is_forum_member(&account_id)?;
+
+            <CategoryByModerator<T>>::insert(category_id, account_id, true);
+            Ok(())
+
+        }
 
         /// Set forum sudo.
         fn set_forum_sudo(origin, new_forum_sudo: Option<T::AccountId>) -> dispatch::Result {
