@@ -251,6 +251,7 @@ pub trait Trait: system::Trait + timestamp::Trait + Sized {
         + PartialEq;
 
     type ThreadId: Parameter
+        + std::marker::Sized
         + Member
         + SimpleArithmetic
         + Codec
@@ -349,6 +350,7 @@ const ERROR_THREAD_MODERATION_RATIONALE_TOO_SHORT: &str = "Thread moderation rat
 const ERROR_THREAD_MODERATION_RATIONALE_TOO_LONG: &str = "Thread moderation rationale too long.";
 const ERROR_THREAD_ALREADY_MODERATED: &str = "Thread already moderated.";
 const ERROR_THREAD_MODERATED: &str = "Thread is moderated.";
+const ERROR_STICKY_THREAD_INDEX_INVALID: &str = "Sticky thread index is invalid.";
 
 // Errors about post.
 const ERROR_POST_DOES_NOT_EXIST: &str = "Post does not exist.";
@@ -579,6 +581,9 @@ pub struct Thread<ForumUserId, ModeratorId, CategoryId, ThreadId, BlockNumber, M
     /// poll description.
     poll: Option<Poll<Moment>>,
 
+    /// Is sticky thread
+    is_sticky: bool,
+
     /// The thread number of this thread in its category, i.e. total number of thread added (including this)
     /// to a category when it was added.
     /// Is needed to give light clients assurance about getting all threads in a given range,
@@ -778,6 +783,9 @@ decl_storage! {
 
         /// Max applied labels for a category or thread
         pub MaxAppliedLabels get(max_applied_labels) config(): u32;
+
+        /// Sticky threads list for a category
+        pub StickyThreadsByCategoryId get(sticky_threads_by_category_id) config(): map T::CategoryId => Vec<T::ThreadId>;
     }
     /*
     JUST GIVING UP ON ALL THIS FOR NOW BECAUSE ITS TAKING TOO LONG
@@ -1099,7 +1107,7 @@ decl_module! {
 
         /// Create new thread in category with poll
         fn create_thread(origin, forum_user_id: T::ForumUserId, category_id: T::CategoryId, title: Vec<u8>, text: Vec<u8>, labels: BTreeSet<T::LabelId>,
-            poll: Option<Poll<T::Moment>>,
+            poll: Option<Poll<T::Moment>>, sticky_index: Option<u32>,
         ) -> dispatch::Result {
 
             // Check that its a valid signature
@@ -1109,7 +1117,7 @@ decl_module! {
             Self::ensure_is_forum_member_with_correct_account(&who, &forum_user_id)?;
 
             // Create a new thread
-            let thread = Self::add_new_thread(category_id, forum_user_id, &title, &text, &labels, &poll)?;
+            let thread = Self::add_new_thread(category_id, forum_user_id, &title, &text, &labels, &poll, sticky_index)?;
 
             // Generate event
             Self::deposit_event(RawEvent::ThreadCreated(thread.id));
@@ -1233,6 +1241,7 @@ decl_module! {
                                         poll_alternatives: new_vote_count,
 
                                     }),
+                                    is_sticky: value.is_sticky,
                                     nr_in_category: value.nr_in_category,
                                     num_unmoderated_posts: value.num_unmoderated_posts,
                                     num_moderated_posts: value.num_moderated_posts,
@@ -1451,6 +1460,7 @@ impl<T: Trait> Module<T> {
         text: &Vec<u8>,
         labels: &BTreeSet<T::LabelId>,
         poll: &Option<Poll<T::Moment>>,
+        sticky_index: Option<u32>,
     ) -> Result<
         Thread<
             T::ForumUserId,
@@ -1495,6 +1505,31 @@ impl<T: Trait> Module<T> {
         // Create and add new thread
         let new_thread_id = <NextThreadId<T>>::get();
 
+        // If it is a sticky thread
+        if sticky_index.is_some() {
+            // Get old value
+            let sticky_threads = <StickyThreadsByCategoryId<T>>::get(category_id);
+
+            // Check sticky thread index
+            if sticky_index.unwrap() as usize > sticky_threads.len() {
+                return Err(ERROR_STICKY_THREAD_INDEX_INVALID);
+            } else {
+                let mut new_sticky_threads: Vec<T::ThreadId> = vec![];
+                let index = sticky_index.unwrap() as usize;
+
+                // Insert new thread id into sticly thread list
+                new_sticky_threads.extend(sticky_threads[0..index].iter().clone());
+                new_sticky_threads.push(<NextThreadId<T>>::get());
+                new_sticky_threads
+                    .extend(sticky_threads[index..sticky_threads.len()].iter().clone());
+
+                // Update sticky thread list to storage
+                <StickyThreadsByCategoryId<T>>::mutate(category_id, |value| {
+                    *value = new_sticky_threads
+                });
+            }
+        }
+
         // Add inital post to thread
         let _ = Self::add_new_post(new_thread_id, &text, author_id);
 
@@ -1510,6 +1545,7 @@ impl<T: Trait> Module<T> {
             created_at: Self::current_block_and_time(),
             author_id: author_id,
             poll: poll.clone(),
+            is_sticky: sticky_index.is_some(),
             nr_in_category: category.num_threads_created() + 1,
             num_unmoderated_posts: 0,
             num_moderated_posts: 0,
