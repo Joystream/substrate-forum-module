@@ -1500,16 +1500,16 @@ impl<T: Trait> Module<T> {
         let new_thread_id = <NextThreadId<T>>::get();
 
         // If it is a sticky thread
-        if sticky_index.is_some() {
+        if let Some(unwrapped_sticky_index) = sticky_index {
             // Get old value
             let sticky_threads = <StickyThreadsByCategoryId<T>>::get(category_id);
 
             // Check sticky thread index
-            if sticky_index.unwrap() as usize > sticky_threads.len() {
+            if unwrapped_sticky_index as usize > sticky_threads.len() {
                 return Err(ERROR_STICKY_THREAD_INDEX_INVALID);
             } else {
                 let mut new_sticky_threads: Vec<T::ThreadId> = vec![];
-                let index = sticky_index.unwrap() as usize;
+                let index = unwrapped_sticky_index as usize;
 
                 // Insert new thread id into sticly thread list
                 new_sticky_threads.extend(sticky_threads[0..index].iter().clone());
