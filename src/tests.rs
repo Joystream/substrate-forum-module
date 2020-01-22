@@ -50,13 +50,16 @@ fn create_forum_user_account_id() {
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
+            good_forum_user_footer(),
             Ok(()),
         );
+        // test use same account id to create multiple forum user
         create_forum_user_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
-            Err(ERROR_USER_ALREADY_REGISTERED_FORUM),
+            good_forum_user_footer(),
+            Ok(()),
         );
     });
 }
@@ -83,6 +86,7 @@ fn create_forum_user_name() {
                 forum_sudo,
                 names[index].clone(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 results[index],
             );
         });
@@ -111,6 +115,40 @@ fn create_forum_user_self_introduction() {
                 forum_sudo,
                 good_user_name(),
                 introductions[index].clone(),
+                good_forum_user_footer(),
+                results[index],
+            );
+        });
+    }
+}
+
+#[test]
+// test case for check post footer 
+fn create_forum_user_post_footer() {
+    let config = default_genesis_config();
+    let forum_sudo = config.forum_sudo;
+    let post_footers = vec![
+        Some(generate_text(config.post_footer_constraint.min as usize)),
+        Some(generate_text(
+            (config.post_footer_constraint.min - 1) as usize,
+        )),
+        Some(generate_text(
+            (config.post_footer_constraint.max() + 1) as usize,
+        )),
+    ];
+    let results = vec![
+        Ok(()),
+        Err(ERROR_USER_POST_FOOTER_TOO_SHORT),
+        Err(ERROR_USER_POST_FOOTER_TOO_LONG),
+    ];
+    for index in 0..post_footers.len() {
+        let config = default_genesis_config();
+        build_test_externalities(config).execute_with(|| {
+            create_forum_user_mock(
+                forum_sudo,
+                good_user_name(),
+                good_self_introduction(),
+                post_footers[index].clone(),
                 results[index],
             );
         });
@@ -132,11 +170,12 @@ fn create_moderator_account_id() {
             good_self_introduction(),
             Ok(()),
         );
+        // test use same account id to create multiple moderator
         create_moderator_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
-            Err(ERROR_USER_ALREADY_REGISTERED_MODERATOR),
+            Ok(()),
         );
     });
 }
@@ -222,7 +261,7 @@ fn set_moderator_category_origin() {
     let origin = OriginType::Signed(forum_sudo);
 
     build_test_externalities(config).execute_with(|| {
-        let _ = create_moderator_mock(
+        let moderator_id = create_moderator_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
@@ -233,14 +272,14 @@ fn set_moderator_category_origin() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
-        set_moderator_category_mock(origin, category_id, forum_sudo, true, Ok(()));
+        set_moderator_category_mock(origin, moderator_id, category_id, true, Ok(()));
         set_moderator_category_mock(
             NOT_FORUM_SUDO_ORIGIN,
+            moderator_id,
             category_id,
-            forum_sudo,
             true,
             Err(ERROR_ORIGIN_NOT_FORUM_SUDO),
         );
@@ -254,7 +293,7 @@ fn set_moderator_category_category() {
     let forum_sudo = config.forum_sudo;
     let origin = OriginType::Signed(forum_sudo);
     build_test_externalities(config).execute_with(|| {
-        let _ = create_moderator_mock(
+        let moderator_id = create_moderator_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
@@ -265,14 +304,14 @@ fn set_moderator_category_category() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
-        set_moderator_category_mock(origin.clone(), category_id, forum_sudo, true, Ok(()));
+        set_moderator_category_mock(origin.clone(), moderator_id, category_id, true, Ok(()));
         set_moderator_category_mock(
             origin.clone(),
+            moderator_id,
             INVLAID_CATEGORY_ID,
-            forum_sudo,
             true,
             Err(ERROR_CATEGORY_DOES_NOT_EXIST),
         );
@@ -291,20 +330,20 @@ fn set_moderator_category_account_id() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         set_moderator_category_mock(
             origin.clone(),
+            NOT_REGISTER_MODERATOR_ID,
             category_id,
-            forum_sudo,
             true,
             Err(ERROR_NOT_MODERATOR_USER),
         );
     });
 
     build_test_externalities(config).execute_with(|| {
-        let _ = create_moderator_mock(
+        let moderator_id = create_moderator_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
@@ -315,10 +354,10 @@ fn set_moderator_category_account_id() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
-        set_moderator_category_mock(origin, category_id, forum_sudo, true, Ok(()));
+        set_moderator_category_mock(origin, moderator_id, category_id, true, Ok(()));
     });
 }
 
@@ -356,7 +395,7 @@ fn create_category_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 results[index],
             );
         });
@@ -384,7 +423,7 @@ fn create_category_parent() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_category_mock(
@@ -392,7 +431,7 @@ fn create_category_parent() {
                 Some(1),
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_category_mock(
@@ -400,7 +439,7 @@ fn create_category_parent() {
                 Some(2),
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             update_category_mock(origin.clone(), 3, Some(true), None, Ok(()));
@@ -410,7 +449,7 @@ fn create_category_parent() {
                 parents[index],
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 results[index],
             );
         });
@@ -429,7 +468,7 @@ fn create_category_depth() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         create_category_mock(
@@ -437,7 +476,7 @@ fn create_category_depth() {
             Some(1),
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         create_category_mock(
@@ -445,7 +484,7 @@ fn create_category_depth() {
             Some(2),
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         create_category_mock(
@@ -453,7 +492,7 @@ fn create_category_depth() {
             Some(3),
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         create_category_mock(
@@ -461,7 +500,7 @@ fn create_category_depth() {
             Some(4),
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Err(ERROR_MAX_VALID_CATEGORY_DEPTH_EXCEEDED),
         );
     });
@@ -491,7 +530,7 @@ fn create_category_title() {
                 None,
                 titles[index].clone(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 results[index],
             );
         });
@@ -522,7 +561,7 @@ fn create_category_description() {
                 None,
                 good_category_title(),
                 descriptions[index].clone(),
-                &vec![],
+                &BTreeSet::new(),
                 results[index],
             );
         });
@@ -535,7 +574,28 @@ fn create_category_labels() {
     let config = default_genesis_config();
     let forum_sudo = config.forum_sudo;
     let origin = OriginType::Signed(forum_sudo);
-    let labels = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 3, 4, 5, 6], vec![100]];
+    let labels: Vec<BTreeSet<<Runtime as Trait>::LabelId>> = vec![
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::LabelId>::new();
+            a.insert(1);
+            a
+        },
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::LabelId>::new();
+            a.insert(1);
+            a.insert(2);
+            a.insert(3);
+            a.insert(4);
+            a.insert(5);
+            a.insert(6);
+            a
+        },
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::LabelId>::new();
+            a.insert(100);
+            a
+        },
+    ];
     let results = vec![
         Ok(()),
         Err(ERROR_TOO_MUCH_LABELS),
@@ -580,7 +640,7 @@ fn update_category_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             update_category_mock(origins[index].clone(), 1, Some(true), None, results[index]);
@@ -599,7 +659,7 @@ fn update_category_without_updates() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         update_category_mock(origin, 1, None, None, Err(ERROR_CATEGORY_NOT_BEING_UPDATED));
@@ -617,7 +677,7 @@ fn update_category_without_updates_two() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         update_category_mock(
@@ -642,7 +702,7 @@ fn update_category_without_updates_three() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         update_category_mock(origin.clone(), 1, Some(false), Some(true), Ok(()));
@@ -668,7 +728,7 @@ fn update_category_deleted_then_unarchived() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         update_category_mock(origin.clone(), 1, Some(true), Some(true), Ok(()));
@@ -688,7 +748,28 @@ fn update_category_deleted_then_unarchived() {
 #[test]
 // test category labels is valid
 fn update_category_labels() {
-    let labels = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 3, 4, 5, 6], vec![100]];
+    let labels: Vec<BTreeSet<<Runtime as Trait>::ThreadId>> = vec![
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::ThreadId>::new();
+            a.insert(1);
+            a
+        },
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::ThreadId>::new();
+            a.insert(1);
+            a.insert(2);
+            a.insert(3);
+            a.insert(4);
+            a.insert(5);
+            a.insert(6);
+            a
+        },
+        {
+            let mut a = BTreeSet::<<Runtime as Trait>::ThreadId>::new();
+            a.insert(100);
+            a
+        },
+    ];
     let results = vec![
         Ok(()),
         Err(ERROR_TOO_MUCH_LABELS),
@@ -701,16 +782,23 @@ fn update_category_labels() {
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
             create_labels_mock();
+            let moderator_id = create_moderator_mock(
+                forum_sudo,
+                good_user_name(),
+                good_self_introduction(),
+                Ok(()),
+            );
             let category_id = create_category_mock(
                 origin.clone(),
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             update_category_labels_mock(
                 origin.clone(),
+                moderator_id,
                 category_id,
                 labels[index].clone(),
                 results[index],
@@ -727,15 +815,27 @@ fn update_category_labels_moderator() {
     let origin = OriginType::Signed(forum_sudo);
     build_test_externalities(config).execute_with(|| {
         create_labels_mock();
+        let moderator_id = create_moderator_mock(
+            forum_sudo,
+            good_user_name(),
+            good_self_introduction(),
+            Ok(()),
+        );
         let category_id = create_category_mock(
             origin.clone(),
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
-        update_category_labels_mock(origin.clone(), category_id, vec![1], Ok(()));
+        update_category_labels_mock(
+            origin.clone(),
+            moderator_id,
+            category_id,
+            BTreeSet::new(),
+            Ok(()),
+        );
     });
 }
 
@@ -749,17 +849,18 @@ fn create_thread_origin() {
         OriginType::Signed(default_genesis_config().forum_sudo),
         NOT_FORUM_SUDO_ORIGIN,
     ];
-    let results = vec![Ok(()), Err(ERROR_NOT_FORUM_USER)];
+    let results = vec![Ok(()), Err(ERROR_FORUM_USER_ID_NOT_MATCH_ACCOUNT)];
     for index in 0..origins.len() {
         let config = default_genesis_config();
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
 
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -767,15 +868,16 @@ fn create_thread_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_thread_mock(
                 origins[index].clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 results[index],
             );
@@ -790,7 +892,7 @@ fn create_thread_title() {
     let titles = [
         generate_text(constraint.min as usize),
         generate_text((constraint.min as usize) - 1),
-        generate_text(constraint.max() + 1),
+        generate_text((constraint.max() as usize) + 1),
     ];
     let results = vec![
         Ok(()),
@@ -803,10 +905,11 @@ fn create_thread_title() {
         let origin = OriginType::Signed(forum_sudo);
 
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -814,15 +917,16 @@ fn create_thread_title() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 titles[index].clone(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 results[index],
             );
@@ -837,7 +941,7 @@ fn create_thread_text() {
     let texts = [
         generate_text(constraint.min as usize),
         generate_text((constraint.min as usize) - 1),
-        generate_text(constraint.max() + 1),
+        generate_text((constraint.max() as usize) + 1),
     ];
 
     let results = vec![
@@ -851,10 +955,11 @@ fn create_thread_text() {
         let origin = OriginType::Signed(forum_sudo);
 
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -862,15 +967,16 @@ fn create_thread_text() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 texts[index].clone(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 results[index],
             );
@@ -881,7 +987,7 @@ fn create_thread_text() {
 #[test]
 // test thread label setting is valid
 fn create_thread_labels() {
-    let labels = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 3, 4, 5, 6], vec![100]];
+    let labels = generate_label_index_cases();
     let results = vec![
         Ok(()),
         Err(ERROR_TOO_MUCH_LABELS),
@@ -894,10 +1000,11 @@ fn create_thread_labels() {
 
         build_test_externalities(config).execute_with(|| {
             create_labels_mock();
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -905,11 +1012,12 @@ fn create_thread_labels() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
@@ -922,139 +1030,25 @@ fn create_thread_labels() {
 }
 
 #[test]
-// test poll items amount is valid
-fn create_thread_poll_items_number() {
-    let poll_items_constraint = default_genesis_config().poll_items_constraint;
-    let items = vec![
-        generate_poll_items(poll_items_constraint.min as usize),
-        generate_poll_items((poll_items_constraint.min as usize) - 1),
-        generate_poll_items((poll_items_constraint.max() as usize) + 1),
-    ];
-    let results = vec![
-        Ok(()),
-        Err(ERROR_POLL_ITEMS_TOO_SHORT),
-        Err(ERROR_POLL_ITEMS_TOO_LONG),
-    ];
-    for index in 0..items.len() {
-        let config = default_genesis_config();
-        let forum_sudo = config.forum_sudo;
-        let origin = OriginType::Signed(forum_sudo);
-
-        build_test_externalities(config).execute_with(|| {
-            create_labels_mock();
-            create_forum_user_mock(
-                forum_sudo,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            let category_id = create_category_mock(
-                origin.clone(),
-                None,
-                good_category_title(),
-                good_category_description(),
-                &vec![],
-                Ok(()),
-            );
-            create_thread_mock(
-                origin.clone(),
-                category_id,
-                good_thread_title(),
-                good_thread_text(),
-                &vec![],
-                Some((
-                    items[index].clone(),
-                    good_poll_text(),
-                    Timestamp::now(),
-                    Timestamp::now() + 10,
-                    1,
-                    4,
-                )),
-                results[index],
-            );
-        });
-    }
-}
-
-#[test]
-// test each poll item text's length
-fn create_thread_poll_items_text() {
-    let poll_desc_constraint = default_genesis_config().poll_desc_constraint;
-    let items = vec![
-        generate_text(poll_desc_constraint.min as usize),
-        generate_text((poll_desc_constraint.min as usize) - 1),
-        generate_text((poll_desc_constraint.max() as usize) + 1),
-    ];
-    let results = vec![
-        Ok(()),
-        Err(ERROR_POLL_DESC_TOO_SHORT),
-        Err(ERROR_POLL_DESC_TOO_LONG),
-    ];
-    for index in 0..items.len() {
-        let config = default_genesis_config();
-        let forum_sudo = config.forum_sudo;
-        let origin = OriginType::Signed(forum_sudo);
-
-        build_test_externalities(config).execute_with(|| {
-            create_labels_mock();
-            create_forum_user_mock(
-                forum_sudo,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            let category_id = create_category_mock(
-                origin.clone(),
-                None,
-                good_category_title(),
-                good_category_description(),
-                &vec![],
-                Ok(()),
-            );
-            create_thread_mock(
-                origin.clone(),
-                category_id,
-                good_thread_title(),
-                good_thread_text(),
-                &vec![],
-                Some((
-                    good_poll_items(),
-                    items[index].clone(),
-                    Timestamp::now(),
-                    Timestamp::now() + 10,
-                    1,
-                    4,
-                )),
-                results[index],
-            );
-        });
-    }
-}
-
-#[test]
 // test if timestamp of poll start time and end time are valid
 fn create_thread_poll_timestamp() {
     // there is other test case as start timestamp is now, and end timestamp as minus
     // but it can not be implemented since the Timestamp::now() return value is zero.
     // then minus become a very large number.
-    let start_times = vec![0, 10];
-    let end_times = vec![10, 5];
-    let results = vec![
-        Ok(()),
-        Err(ERROR_POLL_TIME_SETTING),
-        Err(ERROR_POLL_TIME_SETTING),
-    ];
-    for index in 0..start_times.len() {
+
+    let results = vec![Ok(()), Err(ERROR_POLL_TIME_SETTING)];
+    for index in 0..results.len() {
         let config = default_genesis_config();
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
 
         build_test_externalities(config).execute_with(|| {
             create_labels_mock();
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -1062,29 +1056,18 @@ fn create_thread_poll_timestamp() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
-            println!(
-                "{} {} {}",
-                Timestamp::now(),
-                (Timestamp::now() as i64 + start_times[index]) as u64,
-                (Timestamp::now() as i64 + end_times[index]) as u64
-            );
+
             create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
-                Some((
-                    good_poll_items(),
-                    good_poll_text(),
-                    (Timestamp::now() as i64 + start_times[index]) as u64,
-                    (Timestamp::now() as i64 + end_times[index]) as u64,
-                    1,
-                    4,
-                )),
+                &BTreeSet::new(),
+                Some(generate_poll_timestamp_cases(index)),
                 results[index],
             );
         });
@@ -1098,7 +1081,7 @@ fn create_thread_poll_timestamp() {
 #[test]
 // test if thread labels are valid
 fn update_thread_labels() {
-    let labels = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 3, 4, 5, 6], vec![100]];
+    let labels = generate_label_index_cases();
     let results = vec![
         Ok(()),
         Err(ERROR_TOO_MUCH_LABELS),
@@ -1111,10 +1094,11 @@ fn update_thread_labels() {
 
         build_test_externalities(config).execute_with(|| {
             create_labels_mock();
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -1122,20 +1106,22 @@ fn update_thread_labels() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
-            update_thread_labels_mock(
+            update_thread_labels_by_author_mock(
                 origin.clone(),
+                forum_user_id,
                 thread_id,
                 labels[index].clone(),
                 results[index],
@@ -1145,25 +1131,26 @@ fn update_thread_labels() {
 }
 
 /*
- ** submit_poll
+ ** vote_on_poll
  */
 #[test]
 // test if poll submitter is a forum user
-fn submit_poll_origin() {
+fn vote_on_poll_origin() {
     let origins = vec![
         OriginType::Signed(default_genesis_config().forum_sudo),
         NOT_FORUM_SUDO_ORIGIN,
     ];
-    let results = vec![Ok(()), Err(ERROR_NOT_FORUM_USER)];
+    let results = vec![Ok(()), Err(ERROR_FORUM_USER_ID_NOT_MATCH_ACCOUNT)];
     for index in 0..origins.len() {
         let config = default_genesis_config();
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
             let category_id = create_category_mock(
@@ -1171,42 +1158,43 @@ fn submit_poll_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
-                Some((
-                    good_poll_items(),
-                    good_poll_text(),
-                    Timestamp::now(),
-                    Timestamp::now() + 10,
-                    1,
-                    4,
-                )),
+                &BTreeSet::new(),
+                Some(generate_poll()),
                 Ok(()),
             );
 
-            submit_poll_mock(origins[index].clone(), thread_id, 1, results[index]);
+            vote_on_poll_mock(
+                origins[index].clone(),
+                forum_user_id,
+                thread_id,
+                1,
+                results[index],
+            );
         });
     }
 }
 
 #[test]
 // test if poll metadata created
-fn submit_poll_exists() {
+fn vote_on_poll_exists() {
     let config = default_genesis_config();
     let forum_sudo = config.forum_sudo;
     let origin = OriginType::Signed(forum_sudo);
     build_test_externalities(config).execute_with(|| {
-        create_forum_user_mock(
+        let forum_user_id = create_forum_user_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
+            good_forum_user_footer(),
             Ok(()),
         );
         let category_id = create_category_mock(
@@ -1214,33 +1202,41 @@ fn submit_poll_exists() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         let thread_id = create_thread_mock(
             origin.clone(),
+            forum_user_id,
             category_id,
             good_thread_title(),
             good_thread_text(),
-            &vec![],
+            &BTreeSet::new(),
             None,
             Ok(()),
         );
-        submit_poll_mock(origin.clone(), thread_id, 1, Err(ERROR_POLL_NOT_EXIST));
+        vote_on_poll_mock(
+            origin.clone(),
+            forum_user_id,
+            thread_id,
+            1,
+            Err(ERROR_POLL_NOT_EXIST),
+        );
     });
 }
 
 #[test]
 // test if forum reject poll submit after expiration
-fn submit_poll_expired() {
+fn vote_on_poll_expired() {
     let config = default_genesis_config();
     let forum_sudo = config.forum_sudo;
     let origin = OriginType::Signed(forum_sudo);
     build_test_externalities(config).execute_with(|| {
-        create_forum_user_mock(
+        let forum_user_id = create_forum_user_mock(
             forum_sudo,
             good_user_name(),
             good_self_introduction(),
+            good_forum_user_footer(),
             Ok(()),
         );
         let category_id = create_category_mock(
@@ -1248,83 +1244,23 @@ fn submit_poll_expired() {
             None,
             good_category_title(),
             good_category_description(),
-            &vec![],
+            &BTreeSet::new(),
             Ok(()),
         );
         let thread_id = create_thread_mock(
             origin.clone(),
+            forum_user_id,
             category_id,
             good_thread_title(),
             good_thread_text(),
-            &vec![],
-            Some((
-                good_poll_items(),
-                good_poll_text(),
-                Timestamp::now(),
-                Timestamp::now() + 10,
-                1,
-                4,
-            )),
+            &BTreeSet::new(),
+            Some(generate_poll()),
             Ok(()),
         );
         // std::thread::sleep(std::time::Duration::new(12, 0));
-        // submit_poll_mock(origin.clone(), thread_id, 1, Err(ERROR_POLL_COMMIT_EXPIRED));
-        submit_poll_mock(origin.clone(), thread_id, 1, Ok(()));
+        // vote_on_poll_mock(origin.clone(), thread_id, 1, Err(ERROR_POLL_COMMIT_EXPIRED));
+        vote_on_poll_mock(origin.clone(), forum_user_id, thread_id, 1, Ok(()));
     });
-}
-
-#[test]
-// test if poll data valid according to poll metadata.
-fn submit_poll_data() {
-    // correct data, at least choose two, at most choose three, no such index.
-    let poll_data = vec![3, 1, 15, 32];
-    let results = vec![
-        Ok(()),
-        Err(ERROR_POLL_DATA),
-        Err(ERROR_POLL_DATA),
-        Err(ERROR_POLL_DATA),
-    ];
-
-    for index in 0..poll_data.len() {
-        let config = default_genesis_config();
-        let forum_sudo = config.forum_sudo;
-        let origin = OriginType::Signed(forum_sudo);
-        build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
-                forum_sudo,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            let category_id = create_category_mock(
-                origin.clone(),
-                None,
-                good_category_title(),
-                good_category_description(),
-                &vec![],
-                Ok(()),
-            );
-            let thread_id = create_thread_mock(
-                origin.clone(),
-                category_id,
-                good_thread_title(),
-                good_thread_text(),
-                &vec![],
-                Some((
-                    good_poll_items(),
-                    good_poll_text(),
-                    Timestamp::now(),
-                    Timestamp::now() + 10,
-                    2,
-                    3,
-                )),
-                Ok(()),
-            );
-            // std::thread::sleep(std::time::Duration::new(12, 0));
-            // submit_poll_mock(origin.clone(), thread_id, 1, Err(ERROR_POLL_COMMIT_EXPIRED));
-            submit_poll_mock(origin.clone(), thread_id, poll_data[index], results[index]);
-        });
-    }
 }
 
 /*
@@ -1333,61 +1269,45 @@ fn submit_poll_data() {
 
 #[test]
 // test if thread moderator registered as valid moderator
-fn moderate_thread_origin() {
-    let origins = vec![
-        OriginType::Signed(default_genesis_config().forum_sudo),
-        NOT_FORUM_SUDO_ORIGIN,
-    ];
-    let results = vec![Ok(()), Err(ERROR_NOT_MODERATOR_USER)];
-    for index in 0..origins.len() {
-        let config = default_genesis_config();
-        let forum_sudo = config.forum_sudo;
-        let origin = OriginType::Signed(forum_sudo);
-        build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
-                NOT_FORUM_SUDO_ORIGIN_ID,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            create_forum_user_mock(
-                forum_sudo,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            create_moderator_mock(
-                forum_sudo,
-                good_user_name(),
-                good_self_introduction(),
-                Ok(()),
-            );
-            let category_id = create_category_mock(
-                origin.clone(),
-                None,
-                good_category_title(),
-                good_category_description(),
-                &vec![],
-                Ok(()),
-            );
-            set_moderator_category_mock(origin.clone(), category_id, forum_sudo, true, Ok(()));
-            let thread_id = create_thread_mock(
-                origin.clone(),
-                category_id,
-                good_thread_title(),
-                good_thread_text(),
-                &vec![],
-                None,
-                Ok(()),
-            );
-            moderate_thread_mock(
-                origins[index].clone(),
-                thread_id,
-                good_rationale(),
-                results[index],
-            );
-        });
-    }
+fn moderate_thread_origin_ok() {
+    let config = default_genesis_config();
+    let forum_sudo = config.forum_sudo;
+    let origin = OriginType::Signed(forum_sudo);
+    build_test_externalities(config).execute_with(|| {
+        let forum_user_id = create_forum_user_mock(
+            forum_sudo,
+            good_user_name(),
+            good_self_introduction(),
+            good_forum_user_footer(),
+            Ok(()),
+        );
+        let moderator_id = create_moderator_mock(
+            forum_sudo,
+            good_user_name(),
+            good_self_introduction(),
+            Ok(()),
+        );
+        let category_id = create_category_mock(
+            origin.clone(),
+            None,
+            good_category_title(),
+            good_category_description(),
+            &BTreeSet::new(),
+            Ok(()),
+        );
+        set_moderator_category_mock(origin.clone(), moderator_id, category_id, true, Ok(()));
+        let thread_id = create_thread_mock(
+            origin.clone(),
+            forum_user_id,
+            category_id,
+            good_thread_title(),
+            good_thread_text(),
+            &BTreeSet::new(),
+            None,
+            Ok(()),
+        );
+        moderate_thread_mock(origin, moderator_id, thread_id, good_rationale(), Ok(()));
+    });
 }
 
 #[test]
@@ -1409,13 +1329,14 @@ fn moderate_thread_rationale() {
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
-            create_moderator_mock(
+            let moderator_id = create_moderator_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
@@ -1426,21 +1347,23 @@ fn moderate_thread_rationale() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
-            set_moderator_category_mock(origin.clone(), category_id, forum_sudo, true, Ok(()));
+            set_moderator_category_mock(origin.clone(), moderator_id, category_id, true, Ok(()));
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
             moderate_thread_mock(
                 origin.clone(),
+                moderator_id,
                 thread_id,
                 rationales[index].clone(),
                 results[index],
@@ -1460,16 +1383,17 @@ fn add_post_origin() {
         OriginType::Signed(default_genesis_config().forum_sudo),
         NOT_FORUM_SUDO_ORIGIN,
     ];
-    let results = vec![Ok(()), Err(ERROR_NOT_FORUM_USER)];
+    let results = vec![Ok(()), Err(ERROR_FORUM_USER_ID_NOT_MATCH_ACCOUNT)];
     for index in 0..origins.len() {
         let config = default_genesis_config();
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
 
@@ -1478,21 +1402,23 @@ fn add_post_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
 
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
             create_post_mock(
                 origins[index].clone(),
+                forum_user_id,
                 thread_id,
                 good_post_text(),
                 results[index],
@@ -1520,10 +1446,11 @@ fn add_post_text() {
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
 
@@ -1532,21 +1459,23 @@ fn add_post_text() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
 
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
             create_post_mock(
                 origin.clone(),
+                forum_user_id,
                 thread_id,
                 texts[index].clone(),
                 results[index],
@@ -1577,6 +1506,7 @@ fn react_post() {
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
 
@@ -1585,23 +1515,31 @@ fn react_post() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
 
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
-            let post_id = create_post_mock(origin.clone(), thread_id, good_post_text(), Ok(()));
+            let post_id = create_post_mock(
+                origin.clone(),
+                forum_user_id,
+                thread_id,
+                good_post_text(),
+                Ok(()),
+            );
             assert_eq!(
                 TestForumModule::react_post(
                     mock_origin(origin.clone()),
+                    forum_user_id,
                     post_id,
                     new_values[index]
                 ),
@@ -1637,10 +1575,11 @@ fn edit_post_text() {
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
 
@@ -1649,21 +1588,23 @@ fn edit_post_text() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
 
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
             create_post_mock(
                 origin.clone(),
+                forum_user_id,
                 thread_id,
                 texts[index].clone(),
                 results[index],
@@ -1683,19 +1624,20 @@ fn moderate_post_origin() {
         OriginType::Signed(default_genesis_config().forum_sudo),
         NOT_FORUM_SUDO_ORIGIN,
     ];
-    let results = vec![Ok(()), Err(ERROR_NOT_MODERATOR_USER)];
+    let results = vec![Ok(()), Err(ERROR_MODERATOR_ID_NOT_MATCH_ACCOUNT)];
     for index in 0..origins.len() {
         let config = default_genesis_config();
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
-            create_moderator_mock(
+            let moderator_id = create_moderator_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
@@ -1707,23 +1649,31 @@ fn moderate_post_origin() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
-            set_moderator_category_mock(origin.clone(), category_id, forum_sudo, true, Ok(()));
+            set_moderator_category_mock(origin.clone(), moderator_id, category_id, true, Ok(()));
 
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
-            let post_id = create_post_mock(origin.clone(), thread_id, good_post_text(), Ok(()));
+            let post_id = create_post_mock(
+                origin.clone(),
+                forum_user_id,
+                thread_id,
+                good_post_text(),
+                Ok(()),
+            );
             moderate_post_mock(
                 origins[index].clone(),
+                moderator_id,
                 post_id,
                 good_rationale(),
                 results[index],
@@ -1751,13 +1701,14 @@ fn moderate_post_rationale() {
         let forum_sudo = config.forum_sudo;
         let origin = OriginType::Signed(forum_sudo);
         build_test_externalities(config).execute_with(|| {
-            create_forum_user_mock(
+            let forum_user_id = create_forum_user_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
+                good_forum_user_footer(),
                 Ok(()),
             );
-            create_moderator_mock(
+            let moderator_id = create_moderator_mock(
                 forum_sudo,
                 good_user_name(),
                 good_self_introduction(),
@@ -1769,23 +1720,31 @@ fn moderate_post_rationale() {
                 None,
                 good_category_title(),
                 good_category_description(),
-                &vec![],
+                &BTreeSet::new(),
                 Ok(()),
             );
 
-            set_moderator_category_mock(origin.clone(), category_id, forum_sudo, true, Ok(()));
+            set_moderator_category_mock(origin.clone(), moderator_id, category_id, true, Ok(()));
             let thread_id = create_thread_mock(
                 origin.clone(),
+                forum_user_id,
                 category_id,
                 good_thread_title(),
                 good_thread_text(),
-                &vec![],
+                &BTreeSet::new(),
                 None,
                 Ok(()),
             );
-            let post_id = create_post_mock(origin.clone(), thread_id, good_post_text(), Ok(()));
+            let post_id = create_post_mock(
+                origin.clone(),
+                forum_user_id,
+                thread_id,
+                good_post_text(),
+                Ok(()),
+            );
             moderate_post_mock(
                 origin.clone(),
+                moderator_id,
                 post_id,
                 rationales[index].clone(),
                 results[index],
